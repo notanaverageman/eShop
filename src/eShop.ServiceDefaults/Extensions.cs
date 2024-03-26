@@ -8,12 +8,14 @@ using Microsoft.Extensions.Logging;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using Serilog;
+using Serilog.Formatting.Json;
 
 namespace eShop.ServiceDefaults;
 
 public static partial class Extensions
 {
-    public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder)
+    public static IHostApplicationBuilder AddServiceDefaults(this WebApplicationBuilder builder)
     {
         builder.AddBasicServiceDefaults();
 
@@ -37,8 +39,24 @@ public static partial class Extensions
     /// <remarks>
     /// This allows for things like Polly to be trimmed out of the app if it isn't used.
     /// </remarks>
-    public static IHostApplicationBuilder AddBasicServiceDefaults(this IHostApplicationBuilder builder)
+    public static IHostApplicationBuilder AddBasicServiceDefaults(this WebApplicationBuilder builder)
     {
+        // Use Serilog to enhance log output with trace id etc.
+        Log.Logger = new LoggerConfiguration()
+            .Enrich.FromLogContext()
+            .Enrich.WithThreadId()
+            .WriteTo.Console(new JsonFormatter(renderMessage:true))
+            .ReadFrom.Configuration(builder.Configuration)
+            .CreateLogger();
+
+        builder.Host.UseSerilog();
+
+        // Not the best choice, but it is better than adding try catch to all applications.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            Log.CloseAndFlush();
+        };
+
         // Default health checks assume the event bus and self health checks
         builder.AddDefaultHealthChecks();
 
