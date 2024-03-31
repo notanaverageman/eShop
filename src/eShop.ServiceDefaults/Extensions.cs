@@ -87,9 +87,13 @@ public static partial class Extensions
                     tracing.SetSampler(new AlwaysOnSampler());
                 }
 
-                tracing.AddAspNetCoreInstrumentation()
-                       .AddGrpcClientInstrumentation()
-                       .AddHttpClientInstrumentation();
+                tracing
+                    .AddGrpcClientInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddAspNetCoreInstrumentation(x =>
+                    {
+                        x.Filter = context => context.Request.Path.Value is not ("/health" or "/alive");
+                    });
             });
 
         builder.AddOpenTelemetryExporters();
